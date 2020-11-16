@@ -1,41 +1,54 @@
 from kafka.admin import KafkaAdminClient, NewTopic
 from kafka import KafkaProducer, KafkaConsumer
+from hashlib import sha256
 
 class KafkaCapsule():
-    def __init__(self, topic_name=None, pubWriterKey=None):
-        self.topic_name = topic_name
-        self.gdpName = pubWriterKey
+    def __init__(self, pubWriterKey, topic_name=None):
+        self.gdpName = sha256(bytes(pubWriterKey, encoding='utf-8')).hexdigest()
+        self.dataTopic = self.gdpName + '_data'
+        self.hashTopic = self.gdpName + '_hash'
         self.pubWriterKey = pubWriterKey
         self.admin_client = KafkaAdminClient(
-            bootstrap_servers="localhost:9092",
+            bootstrap_servers='localhost:9092',
             client_id=pubWriterKey
         )
-        self.producer = None
-        self.consumer = None
+        self.topic_name = topic_name
+        self.ready = False
 
     def createCapsule(self):
-        # Create new topic
-        if (self.topic_name is None or self.pubWriterKey is None):
-            print('Error, invalid pubwriter key and topic_name')
+        # Create new topics
+        if (self.pubWriterKey is None):
+            print('Error, invalid pubwriter key')
             return
 
         try:
-            topic_list = [NewTopic(name=self.topic_name, num_partitions=1, replication_factor=1)]
+            topic_list = [NewTopic(name=self.dataTopic, num_partitions=1, replication_factor=1), 
+                          NewTopic(name=self.hashTopic, num_partitions=1, replication_factor=1)]
             self.admin_client.create_topics(new_topics=topic_list, validate_only=False)
         except:
-            print("topic exists")
+            print('Topic already exists, use load instead')
+            return
 
         # Append capsule metadata
-        metadata = [self.pubWriterKey]
-        KafkaProducer(bootstrap_servers=['localhost:9092']).send(self.topic_name, value=bytes(metadata))
+        metadata = self.pubWriterKey
+        producer = KafkaProducer(bootstrap_servers=['localhost:9092'])
+        value = bytes(metadata, encoding='utf-8')
+        producer.send(self.dataTopic, value=value)
+        producer.send(self.hashTopic, value=value)
 
-    def loadCapsule(self, topic_name):
+        print('Topic created!')
+        self.ready = True
+        return self.getName()
+
+    def loadCapsule(self, gdpName):
         # Pull basic information
-        self.topic_name = topic_name
+        self.gdpName = gdpName
+        self.dataTopic = gdpName + '_data'
+        self.hashTopic = gdpName + '_hash'
         
         # Pull metadata information
-        metadataConsumer = KafkaConsumer(self.topic_name, 
-            bootstrap_servers=["localhost:9092"],
+        metadataConsumer = KafkaConsumer(self.dataTopic, 
+            bootstrap_servers=['localhost:9092'],
             auto_offset_reset='earliest', 
             max_poll_records=0)
         metadata = None
@@ -45,21 +58,32 @@ class KafkaCapsule():
             break
         self.pubWriterKey = metadata[0]
 
-        # Create produce and consumer
-        self.producer = KafkaProducer(bootstrap_servers=['localhost:9092'])
-        self.consumer = KafkaConsumer(self.topic_name, 
-        bootstrap_servers=["localhost:9092"],
-        auto_offset_reset='earliest')
+        self.ready = True
+        print('Capusle loaded!')
 
     def append(self, data):
+        # Ensure capsule has been created or loaded
+        if not self.ready:
+            print('Error, capsule not created or loaded')
+            return
+
+        # Append data
         producer = KafkaProducer(bootstrap_servers=['localhost:9092'])
-        producer.send(self.topic_name, value=data)
-        print("Appended: ", data)
+        producer.send(self.dataTopic, value=data)
+        producer.send(self.hashTopic, value=sha256(data).digest())
+        print('Appended: ', data)
 
     def read(self, offset=0):
+        # Ensure capsule has been created or loaded
+        if not self.ready:
+            print('Error, capsule not created or loaded')
+            return
+
+        # Read data
+        # TODO: Verify hashes
         data = []
-        consumer = KafkaConsumer(self.topic_name, 
-        bootstrap_servers=["localhost:9092"],
+        consumer = KafkaConsumer(self.dataTopic, 
+        bootstrap_servers=['localhost:9092'],
         auto_offset_reset='earliest', 
         consumer_timeout_ms=1000)
         # consumer.seek((0), offset) BROKEN, partition must be a TopicPartition namedtuple
@@ -68,8 +92,12 @@ class KafkaCapsule():
         return data
     
     def readLast(self):
-        self.consumer.seek_to_end()
-        return self.consumer.poll()
+        # TODO
+        return
 
     def subscribe(self):
+        # TODO
         return
+    
+    def getName(self):
+        return self.gdpName
