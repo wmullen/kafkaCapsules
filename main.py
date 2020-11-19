@@ -1,7 +1,9 @@
 import kafkaCapsule as kc
 
-capsule = kc.KafkaCapsule('12345', "test")
+capsule = kc.KafkaCapsule('1234567', "test6")
 capsuleName = capsule.createCapsule()
+print('Capsule Name: ')
+print(capsuleName)
 testData = "Test Data"
 testData = testData.encode("utf-8")
 capsule.append(testData)

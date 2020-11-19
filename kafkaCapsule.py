@@ -1,10 +1,10 @@
 from kafka.admin import KafkaAdminClient, NewTopic
-from kafka import KafkaProducer, KafkaConsumer
+from kafka import KafkaProducer, KafkaConsumer, TopicPartition
 from hashlib import sha256
 
 class KafkaCapsule():
     def __init__(self, pubWriterKey, topic_name=None):
-        self.gdpName = sha256(bytes(pubWriterKey, encoding='utf-8')).hexdigest()
+        self.gdpName = sha256(bytes(pubWriterKey + topic_name, encoding='utf-8')).hexdigest()
         self.dataTopic = self.gdpName + '_data'
         self.hashTopic = self.gdpName + '_hash'
         self.pubWriterKey = pubWriterKey
@@ -86,14 +86,20 @@ class KafkaCapsule():
         bootstrap_servers=['localhost:9092'],
         auto_offset_reset='earliest', 
         consumer_timeout_ms=1000)
-        # consumer.seek((0), offset) BROKEN, partition must be a TopicPartition namedtuple
+        # consumer.seek((0), offset)
         for message in consumer:
             data.append(message.value)
         return data
     
     def readLast(self):
         # TODO
-        return
+        tp = TopicPartition(self.dataTopic, 0)
+        consumer = KafkaConsumer(self.dataTopic, 
+        bootstrap_servers=['localhost:9092'],
+        auto_offset_reset='earliest', 
+        consumer_timeout_ms=1000)
+        consumer.seek_to_end(tp)
+        return consumer.poll(max_records=1)
 
     def subscribe(self):
         # TODO

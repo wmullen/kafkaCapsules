@@ -87,7 +87,7 @@ Returns the `gdpName` stored in this object.
 - [ ] subscribe function
 - [ ] Automated tests
 - [ ] Add docstrings to functions
-- [ ] Change `gdpName` to include capsule name to prevent only one capsule permitted per `pubWriterKey`
+- [x] Change `gdpName` to include capsule name to prevent only one capsule permitted per `pubWriterKey`
 
 # Questions
 1. What fields absolutely need to be in the capsule from the start?
