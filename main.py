@@ -1,5 +1,7 @@
 import kafkaCapsule as kc
 
+# Check for heartbeat 
+
 capsule = kc.KafkaCapsule('1234567', "test6")
 capsuleName = capsule.createCapsule()
 print('Capsule Name: ')
